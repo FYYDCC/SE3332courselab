@@ -1,0 +1,6 @@
+tqdm
+scikit-learn
+transformers
+torch==2.0.0
+numpy
+wandb
