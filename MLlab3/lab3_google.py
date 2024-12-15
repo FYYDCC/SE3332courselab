@@ -205,7 +205,6 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
 
             output_batch = model(img_batch)
 
-            # tính loss
             loss = loss_fn(output_batch, label_batch.long())
 
             loss.backward()
