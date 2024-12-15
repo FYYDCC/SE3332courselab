@@ -151,7 +151,6 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
     else:
         device = torch.device('cpu')
 
-    # chia dữ liệu thành 2 tập train và val    
     if validation_data is not None:
         val_data = validation_data
     elif validation_split is not None:
@@ -165,7 +164,7 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
             train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42)
         best_loss, _ = evaluate(model, val_data, device=device, loss_fn=loss_fn)
 
-    # đặt số lần update weights trong 1 epoch
+    #update weights trong 1 epoch
     if steps_per_epoch is None:
         steps_per_epoch = len(train_data)
 
@@ -185,56 +184,43 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
 
     ############################### Train and Val ##########################################
     for epoch in range(1, epochs + 1):
-        # tạo mới iterator ở đầu mỗi epoch
         iterator = iter(train_data)
 
-        # tính tổng giá trị hàm mất mát cho mỗi epoch
         running_loss = 0.
         train_correct = 0
         train_total = steps_per_epoch * train_data.batch_size
 
-        # đặt model ở chế độ huấn luyện 
         model.train()
 
         for step in tqdm(range(steps_per_epoch), desc=f'epoch: {epoch}/{epochs}: ', ncols=80):
             try:
                 img_batch, label_batch = next(iterator)
             except StopIteration:
-                # nếu iterator hết dữ liệu, tạo mới iterator
                 iterator = iter(train_data)
                 img_batch, label_batch = next(iterator)
 
             img_batch, label_batch = img_batch.to(device), label_batch.to(device)
 
-            # Xóa các gradient
             optimizer.zero_grad()
 
-            # tính toán đầu ra
             output_batch = model(img_batch)
 
             # tính loss
             loss = loss_fn(output_batch, label_batch.long())
 
-            # lan truyền ngược
             loss.backward()
-
-            # cập nhật trọng số
             optimizer.step()
 
-            # tính giá trị trung bình loss qua mỗi epoch
             running_loss += loss.item()
 
-            # tính toán accuracy
             _, predicted = torch.max(output_batch.data, 1)
             train_correct += (predicted == label_batch).sum().item()
 
             count_steps += 1
 
-        # tính giá trị loss và accuracy trung bình qua mỗi epoch
         train_loss = running_loss / steps_per_epoch
         train_acc = train_correct / train_total
 
-        # validate model nếu có tập validation
         if val_data is not None:
             val_loss, val_acc = evaluate(model, val_data, device=device, loss_fn=loss_fn)
 
@@ -246,17 +232,15 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
         else:
             logger.info(f'Epoch {epoch}/{epochs}, Loss: {train_loss:.4f}, Acc: {train_acc:.4f}')
 
-        # lưu trọng số của epoch hiện tại
+
         if save_last_weights_path:
             torch.save(model.state_dict(), save_last_weights_path)
 
-        # lưu trọng số tốt nhất
         if save_best_weights_path:
             if val_loss < best_loss:
                 best_loss = val_loss
                 torch.save(model.state_dict(), save_best_weights_path)
 
-        # điều chỉnh learning rate theo scheduler nếu được cung cấp
         if scheduler:
             scheduler.step()
 
@@ -269,7 +253,6 @@ def train(model, train_data, loss_fn, optimizer, epochs, weights=None, save_last
 
 
 def evaluate(model, val_data, device='cpu', loss_fn=None):
-    # chuyển model sang chế độ đánh giá
     model.eval()
 
     val_correct = 0
@@ -277,27 +260,23 @@ def evaluate(model, val_data, device='cpu', loss_fn=None):
 
     running_loss = 0.0
 
-    # không tính gradient trong quá trình đánh giá
     with torch.no_grad():
         for img_batch, label_batch in tqdm(val_data, desc='Evaluating', ncols=100):
             img_batch, label_batch = img_batch.to(device), label_batch.to(device)
 
-            # tính toán đầu ra
+
             output_batch = model(img_batch)
 
-            # tính loss nếu có
+
             if loss_fn:
                 loss = loss_fn(output_batch, label_batch.long())
                 running_loss += loss.item()
 
-            # tính toán accuracy
             _, predicted = torch.max(output_batch.data, 1)
             val_correct += (predicted == label_batch).sum().item()
 
-    # tính giá trị trung bình loss qua tất cả các batch
     val_loss = running_loss / len(val_data) if loss_fn else None
 
-    # tính giá trị accuracy
     val_acc = val_correct / val_total
 
     logger.info(f'Validation Loss: {val_loss:.4f}, Validation Acc: {val_acc:.4f}')
